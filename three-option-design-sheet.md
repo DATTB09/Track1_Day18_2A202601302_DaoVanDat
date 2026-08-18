@@ -1,40 +1,184 @@
-# Three-option Design Sheet
+# Three-option Design Sheet — Nhóm AI Tutor
 
-## Hypothesis Problem
+**Case:** AI Tutor — Diagnostic Refresher  
+**Thành viên:** Nguyễn Minh Quân · Vũ Đình Huy · Đào Văn Đạt  
+**Trạng thái:** Design complete · Prototype links pending · User test pending
 
-> Khi đang học một bài trên VLearn và gặp một khái niệm hoặc đoạn nội dung không hiểu, học viên gặp khó khăn trong việc khôi phục đủ kiến thức liên quan mà không làm mất mạch học. Họ phải tra cứu bên ngoài, bị chậm so với lớp hoặc bỏ qua nội dung khi chưa hiểu rõ. Ba option dưới đây cùng giải quyết task này (gỡ điểm vướng để tiếp tục bài học) nhưng phân chia vai trò user–AI khác nhau (user chủ động chọn điểm khó, AI và user cùng chẩn đoán, hoặc AI chủ động đề xuất lộ trình).
+## 1. Evidence Snapshot từ Day 17
 
-## Constants dùng chung cho A/B/C
+| Practice Note | User đã thực sự làm/nói gì? | Điều nhóm đang diễn giải |
+|---|---|---|
+| P01 | User nói mình “không biết hổng chỗ nào để đi vá”; tra “RRF reranking là gì” nhưng sau đó vẫn không giải thích được lý do chọn top-k. | Có tín hiệu user biết đoạn đang tắc nhưng chưa định vị được phần nền cần bổ sung. |
+| P02 | User nói việc cố gắng tìm hiểu có thể khiến mình bỏ lỡ phần bài sau. | Có tín hiệu chi phí gián đoạn là một barrier riêng. |
+| P03 | User đưa nội dung slide vào ChatGPT để hỏi Harness; mất khoảng 5 phút và lớp đi trước 5 slide. | Có workaround và consequence quan sát được; nghiêng nhẹ về chi phí gián đoạn. |
 
-| Thành phần | Nội dung |
+### Pattern và mâu thuẫn
+
+- Cả ba đều gặp điểm không hiểu trong khi bài học vẫn đang tiếp tục.
+- P01 và P03 đều rời luồng học hiện tại để dùng nguồn bên ngoài.
+- P02 và P03 cho tín hiệu về mất mạch hoặc chậm tiến độ.
+- P01 nghiêng về khó chẩn đoán phần nền; P02/P03 cho thấy ngay cả khi biết điểm vướng, chi phí xử lý vẫn có thể là barrier.
+- Hypothesis C về AI Tutor hiện có chưa được kiểm tra trực tiếp trong ba Practice Notes.
+
+## 2. Hypothesis Problem
+
+> Khi **đang học một bài mới trên VLearn và gặp một đoạn hoặc khái niệm không hiểu**, **học viên** gặp khó khăn trong việc **gỡ điểm vướng để tiếp tục bài học** vì **họ không thể nhanh chóng xác định và bổ sung phần kiến thức liên quan ngay trong mạch học**, dẫn đến **phải rời bài đi tra cứu, mất mạch, bị chậm so với lớp hoặc tiếp tục khi chưa hiểu chắc nội dung**.
+
+### Evidence ban đầu hỗ trợ
+
+P01 phải tra cứu RRF nhưng vẫn không giải thích được top-k; P02 nêu rủi ro bỏ lỡ bài sau khi dừng lại tìm hiểu; P03 mất khoảng 5 phút tra cứu Harness và lớp đi trước 5 slide. Evidence cho thấy situation, workaround và consequence có tồn tại ở các trường hợp được luyện tập.
+
+### Still Unproven
+
+- Barrier chính là không xác định được kiến thức nền hay chi phí gián đoạn.
+- AI chẩn đoán có chính xác hơn user tự chọn điểm khó hay không.
+- Giải thích trong bài có giúp user hiểu, không chỉ giúp trả lời ngay hay không.
+- User có chấp nhận AI chủ động dùng lịch sử học để đề xuất hay không.
+- Problem prevalence, product value, learning outcome và market demand chưa được chứng minh.
+
+## 3. Comparison Contract — Những thứ giữ nguyên
+
+| Thành phần | Quyết định chung cho A/B/C |
 |---|---|
 | Target user | Học viên trong khóa đang học một bài mới trên VLearn |
-| Situation | Học viên gặp một đoạn không hiểu trong khi bài học vẫn đang tiếp tục |
-| Task | Gỡ điểm vướng, hiểu bài làm gì và giải thích được bài đó |
-| Desired outcome | Học viên hiểu đủ để trả lời câu hỏi kiểm tra và quay lại đúng vị trí đang học mà không phải tra cứu bên ngoài |
-| Content/data fixture | Cùng một đoạn bài đó, một câu trả lời gần đây chưa chính xác và cùng lịch sử học tập mẫu |
+| Situation | Học viên gặp đoạn RRF/top-k không hiểu trong khi bài học vẫn tiếp tục |
+| Task | Hiểu RRF làm gì và giải thích được vì sao hệ thống vẫn chọn top-k sau fusion |
+| Desired outcome | Học viên trả lời được câu hỏi kiểm tra và quay lại đúng vị trí đang học mà không phải tra cứu bên ngoài |
+| Content/data fixture | Cùng đoạn bài RRF, câu trả lời gần đây chưa chính xác và lịch sử học tập mẫu |
+| Visual contract | Cùng context screen, typography, components, panel width và vị trí nút quay lại/reset |
 
-## Ba solution options
+### Content/data fixture dùng chung
+
+**Đoạn bài học:**
+
+> “Reciprocal Rank Fusion — RRF — kết hợp nhiều danh sách kết quả đã được xếp hạng. Điểm của mỗi tài liệu được tính dựa trên vị trí của tài liệu trong từng danh sách. Sau khi fusion, hệ thống giữ lại top-k tài liệu để chuyển sang bước tiếp theo.”
+
+**Câu hỏi kiểm tra:**
+
+> “RRF có vai trò gì và vì sao hệ thống vẫn cần chọn top-k sau khi fusion?”
+
+**Câu trả lời gần đây của học viên:**
+
+> “RRF cộng các điểm cosine similarity để chọn top-k.”
+
+**Lịch sử học tập mẫu:**
+
+- Đã hoàn thành Embeddings và Vector Retrieval.
+- Chưa hoàn thành Ranking và Reranking.
+
+Fixture trên là dữ liệu giả lập phục vụ prototype, không phải interview evidence.
+
+## 4. Three Solution Options
 
 | Thành phần | Option A — User-led Inline Explain | Option B — Collaborative Diagnosis | Option C — AI-led Recovery Path |
 |---|---|---|---|
-| Solution mechanism | User chọn chính xác điểm khó và yêu cầu một kiểu giải thích; AI không tự suy luận nguyên nhân | User và AI cùng xác định kiến thức nền còn thiếu qua hai câu hỏi ngắn | AI sử dụng câu trả lời gần đây và lịch sử học để chủ động đề xuất lộ trình ôn |
-| User làm gì? | Bôi đen "RRF" hoặc "top-k"; chọn định nghĩa, ví dụ hoặc giải thích từng bước | Báo chưa hiểu, trả lời hai câu chẩn đoán và xác nhận hoặc sửa kết luận của AI | Xem lý do AI đưa ra đề xuất; chấp nhận, đổi khái niệm, bỏ qua hoặc yêu cầu trợ giúp từ người thật |
-| AI làm gì? | Chỉ giải thích nội dung user đã chọn, dựa trên đoạn bài hiện tại | Đặt câu hỏi, phân tích câu trả lời, đề xuất một kiến thức nền và tạo refresher ngắn | Phân tích câu trả lời sai và lịch sử bài học; đề xuất bản đồ kiến thức cùng mức chắc chắn |
-| Trigger | User chủ động chọn nội dung và yêu cầu giải thích | User bấm "Tôi vẫn chưa hiểu" | Sau một câu trả lời sai ở checkpoint, AI chủ động đưa đề xuất nhưng chưa tự chuyển bài |
-| Trade-off chính | Nhanh, ít suy luận và user kiểm soát cao; có thể chỉ xử lý triệu chứng bề mặt | Có khả năng tìm đúng nguyên nhân hơn; user phải trả lời thêm và mất thời gian trước khi được giải thích | Ít thao tác, hỗ trợ chủ động; có rủi ro AI suy luận sai, gây phiền hoặc làm user mất quyền chủ động |
+| Solution mechanism | User chọn chính xác điểm khó và kiểu giải thích; AI không tự suy luận nguyên nhân. | User và AI cùng xác định kiến thức nền qua hai câu hỏi ngắn. | AI dùng câu trả lời gần đây và tiến độ học để chủ động đề xuất lộ trình ôn. |
+| User làm gì? | Bôi đen `RRF` hoặc `top-k`; chọn định nghĩa, ví dụ hoặc giải thích từng bước. | Báo chưa hiểu, trả lời hai câu và xác nhận hoặc sửa đề xuất. | Xem evidence, chấp nhận, đổi khái niệm, dismiss hoặc yêu cầu hỗ trợ từ người thật. |
+| AI làm gì? | Chỉ giải thích phần user chọn dựa trên bài hiện tại. | Hỏi, phân tích câu trả lời, đề xuất một phần nền và tạo refresher sau khi user xác nhận. | Phân tích câu trả lời sai và trạng thái hoàn thành; đề xuất bản đồ kiến thức cùng mức chắc chắn. |
+| Trigger | User bôi đen nội dung và yêu cầu giải thích. | User bấm “Tôi vẫn chưa hiểu”. | Sau câu trả lời sai ở checkpoint, AI hiển thị suggestion card nhưng không tự chuyển bài. |
+| Trade-off chính | Nhanh, ít suy luận, kiểm soát cao; có thể chỉ xử lý triệu chứng bề mặt. | Có thể tìm đúng nguyên nhân hơn; thêm thao tác và thời gian. | Ít thao tác; có rủi ro suy luận sai, gây phiền hoặc giảm agency. |
 
-## Distance check
+### Solution hypotheses
 
-- A khác B vì: A giả định user đã biết điểm mình cần hỏi và AI chỉ giải thích phần được chọn; B chưa giả định user biết nguyên nhân và cùng user thực hiện chẩn đoán trước.
-- B khác C vì: B chỉ bắt đầu khi user yêu cầu và hai bên cùng xây dựng kết luận; C do AI chủ động suy luận từ dữ liệu học tập rồi đưa đề xuất để user xem xét.
-- A khác C vì: A không sử dụng lịch sử học tập và không tự suy luận; C sử dụng context và câu trả lời gần đây để chủ động đề xuất một lộ trình kiến thức.
+- **A:** Nếu user chọn đúng điểm khó và nhận giải thích ngay trong bài, họ có thể gỡ điểm vướng nhanh mà không cần AI suy luận về kiến thức nền.
+- **B:** Nếu AI và user cùng chẩn đoán trước khi giải thích, phần hỗ trợ có thể xử lý nguyên nhân sâu hơn thay vì chỉ diễn giải lại đoạn hiện tại.
+- **C:** Nếu AI chủ động nhận biết tín hiệu mắc kẹt và đưa lộ trình có evidence, user có thể tìm đường ôn với ít thao tác hơn.
 
-## Human-AI decision table
+## 5. Distance Check
 
-| Quyết định | Option A | Option B | Option C |
+- **A khác B vì:** A giả định user biết điểm cần hỏi và AI chỉ giải thích phần được chọn; B cùng user chẩn đoán nguyên nhân trước.
+- **B khác C vì:** B chỉ bắt đầu khi user yêu cầu; C chủ động đưa đề xuất từ dữ liệu học tập để user review.
+- **A khác C vì:** A không dùng lịch sử và không tự suy luận; C dùng câu trả lời gần đây cùng tiến độ để đề xuất lộ trình.
+
+```text
+Option A: USER INITIATES — AI RESPONDS
+→ Option B: USER + AI CO-DIAGNOSE
+→ Option C: AI INITIATES — USER REVIEWS
+```
+
+## 6. Human–AI Decision Table
+
+| Human–AI decision | Option A | Option B | Option C |
 |---|---|---|---|
-| Expectation & giới hạn | User chủ động chọn đúng đoạn khó và loại giải thích; AI chỉ giải thích nội dung được chọn, không tự suy luận nguyên nhân sâu hơn hoặc dùng lịch sử học | AI chỉ được đặt tối đa hai câu hỏi chẩn đoán ngắn trước khi đề xuất kiến thức nền, không tự kết luận nếu user chưa xác nhận | AI được chủ động đề xuất lộ trình dựa trên câu trả lời sai và lịch sử học, nhưng không được tự chuyển bài hoặc thay đổi tiến trình học nếu chưa có sự đồng ý của user |
-| AI Act / Ask / Don't Act? | Act khi user đã chọn nội dung cụ thể; Don't Act (không tự suy luận hay đề xuất) nếu chưa có lựa chọn từ user | Ask trước (hai câu hỏi chẩn đoán) rồi mới Act (đề xuất refresher); chờ user xác nhận hoặc sửa kết luận trước khi hoàn tất | Act chủ động (đề xuất lộ trình kèm lý do) ngay sau câu trả lời sai ở checkpoint; Don't Act với việc tự chuyển bài — chỉ Ask và chờ user chấp nhận |
-| Evidence & uncertainty | Chỉ dựa vào đoạn bài hiện tại được user bôi đen; không đánh giá mức độ chắc chắn vì không tự suy luận nguyên nhân | Dựa trên câu trả lời của user cho hai câu hỏi chẩn đoán; kết luận có thể sai nên cần user xác nhận hoặc sửa | Dựa trên câu trả lời gần đây sai và lịch sử học tập; AI phải nêu rõ mức độ chắc chắn của đề xuất vì suy luận có thể sai |
-| User control & recovery | User toàn quyền chọn lại đoạn khác, đổi kiểu giải thích, hoặc bỏ qua nếu giải thích chưa đủ | User có thể sửa kết luận chẩn đoán của AI trước khi nhận refresher; có thể dừng ở bất kỳ bước nào | User có thể chấp nhận, đổi khái niệm khác, bỏ qua đề xuất, hoặc yêu cầu trợ giúp từ người thật |
+| User làm gì? AI làm gì? | User chọn đoạn và kiểu giải thích; AI phản hồi đúng phạm vi được chọn. | User trả lời hai câu; AI đề xuất phần nền; user xác nhận trước khi AI tạo refresher. | AI hiển thị suggestion card; user xem evidence và quyết định chấp nhận, đổi hoặc dismiss. |
+| AI Act / Ask / Don't Act? Vì sao? | **Act** sau yêu cầu rõ; **Don’t Act** nếu user chưa chọn nội dung. | **Ask** trước, sau đó mới **Act** khi user xác nhận. | **Ask bằng đề xuất chủ động**, không tự điều hướng hoặc thay đổi tiến trình. |
+| User hiểu capability/limit bằng gì? | “AI chỉ giải thích phần bạn chọn dựa trên bài hiện tại; không chẩn đoán toàn bộ kiến thức nền.” | “Hai câu sau giúp ước lượng phần có thể cần ôn; kết quả là đề xuất, không phải kết luận chắc chắn.” | “Đề xuất dựa trên câu trả lời gần đây và tiến độ; AI có thể suy luận sai và không tự đổi lộ trình.” |
+| Evidence/uncertainty thể hiện thế nào? | Hiển thị đoạn được chọn và nguồn bài hiện tại; nếu thiếu context, AI nói chưa đủ thông tin. | Hiển thị câu trả lời nào dẫn đến đề xuất; dùng “có thể/khả năng” và yêu cầu user xác nhận. | Hiển thị hai tín hiệu được dùng, mức chắc chắn định tính và nút “Vì sao tôi thấy đề xuất này?”. |
+| User kiểm soát và recovery thế nào? | Đổi đoạn, đổi kiểu giải thích, đóng panel hoặc quay lại đúng vị trí. | Bỏ qua chẩn đoán, sửa câu trả lời, bác bỏ khái niệm, chọn phần khác hoặc quay lại bài. | Chấp nhận, dismiss, chọn đường khác, chỉ dùng câu trả lời hiện tại, tắt gợi ý hoặc hỏi giảng viên. |
+
+## 7. Feedback and Data Check
+
+| Nội dung | Option A | Option B | Option C |
+|---|---|---|---|
+| Dữ liệu dùng | Đoạn user chọn và trang hiện tại | Trang hiện tại và hai câu trả lời chẩn đoán | Trang hiện tại, câu trả lời gần đây và trạng thái hoàn thành bài |
+| Ảnh hưởng của feedback | Chỉ phiên hiện tại | Sửa đề xuất trong phiên hiện tại | Bác bỏ đề xuất sẽ dừng lộ trình hiện tại |
+| Ghi nhớ mặc định | Không | Không | Không nếu user chưa đồng ý |
+| Rút quyền | Đóng phần giải thích | Dừng chẩn đoán và bỏ câu trả lời phiên | “Chỉ dùng câu trả lời hiện tại” hoặc “Tắt đề xuất chủ động” |
+
+Prototype không giả định dữ liệu được dùng để huấn luyện hoặc cá nhân hóa cho lần sau.
+
+## 8. Scope ba Micro-prototype
+
+Mỗi option gồm đúng ba trạng thái:
+
+```text
+COMMON CONTEXT
+→ CRITICAL INTERACTION
+→ RESULT / USER DECISION
+```
+
+| Option | Common Context | Critical Interaction | Result/User Decision |
+|---|---|---|---|
+| A | Đọc đoạn RRF và câu trả lời gần đây | Bôi đen `RRF`/`top-k`, chọn định nghĩa/ví dụ/từng bước | Đọc giải thích; đổi kiểu, chọn đoạn khác, đóng hoặc quay lại câu hỏi |
+| B | Đọc cùng đoạn và bấm “Tôi vẫn chưa hiểu” | Trả lời hai câu chẩn đoán | Xem đề xuất cùng evidence; xác nhận, sửa, bỏ qua hoặc quay lại |
+| C | Sau câu trả lời sai, suggestion card xuất hiện | Mở lý do và xem các đường ôn tập | Chấp nhận, đổi đường, dismiss, tắt gợi ý hoặc hỏi người thật |
+
+### Shared components và reset
+
+- Cùng header VLearn, tên bài, tiến độ, nội dung, câu hỏi và câu trả lời gần đây.
+- Cùng panel width, typography, màu, nút “Quay lại bài” và “Bắt đầu lại”.
+- Reset xóa lựa chọn/câu trả lời trong phiên và đưa tester về Common Context.
+
+## 9. Prototype Annotation
+
+### Option A
+
+```text
+OPTION A
+We expect the tester to: chọn điểm khó, chọn kiểu giải thích và quay lại câu hỏi.
+Watch for: tester có nhận ra phải chọn nội dung không; có đổi cách giải thích không.
+Do not explain: không chỉ từ cần chọn và không giải thích đáp án RRF/top-k.
+```
+
+### Option B
+
+```text
+OPTION B
+We expect the tester to: trả lời hai câu, đọc lý do và chấp nhận hoặc bác bỏ đề xuất.
+Watch for: hai câu có gây tốn công không; tester có hiểu đây chỉ là đề xuất không.
+Do not explain: không nói đáp án đúng và không khuyến khích chấp nhận chẩn đoán.
+```
+
+### Option C
+
+```text
+OPTION C
+We expect the tester to: nhận thấy đề xuất, kiểm tra evidence và quyết định accept/change/dismiss.
+Watch for: suggestion có gây phiền không; tester có tìm thấy data control và dismiss không.
+Do not explain: không nói vì sao AI xuất hiện và không chỉ vị trí nút dismiss.
+```
+
+## 10. Definition of Testable
+
+- [x] A/B/C bắt đầu từ cùng context, task và fixture.
+- [x] Mỗi option có tối đa ba trạng thái chính.
+- [x] Option A thể hiện user-led/no-inference.
+- [x] Option B thể hiện user–AI co-diagnosis.
+- [x] Option C thể hiện proactive suggestion và user review.
+- [x] Mỗi option có control/recovery được thiết kế.
+- [x] Có reset path chung trong thiết kế.
+- [ ] Tester có thể tự mở và thao tác cả ba prototype.
+- [ ] Ba prototype đã được review chéo.
+- [ ] Link thật A/B/C đã được điền trong `prototype-link.md`.
+
+Ba ô cuối chỉ được đánh dấu sau khi prototype thực tế hoàn thành.
